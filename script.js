@@ -8,14 +8,22 @@ if (tg) tg.onclick = () => {
   tg.textContent = hidden ? 'Hide' : 'Show';
 };
 
-// 2. Login form validation
+// 2. Login with demo users (demo only, real authentication comes with the backend)
+const demoUsers = [
+  { email: 'ali@zakattrack.pk', password: 'Donor@1234', name: 'Ali', role: 'donor' },
+  { email: 'sara@zakattrack.pk', password: 'Ngo@12345', name: 'Sara', role: 'ngo' }
+];
 const lf = $('#loginForm');
 if (lf) lf.onsubmit = e => {
   e.preventDefault();
   const msg = $('#loginMsg');
-  if (!/^\S+@\S+\.\S+$/.test($('#email').value.trim())) return msg.textContent = 'Please enter a valid email address.';
+  const email = $('#email').value.trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(email)) return msg.textContent = 'Please enter a valid email address.';
   if (pw.value.length < 8) return msg.textContent = 'Password must be at least 8 characters.';
-  location.href = 'donate.html';
+  const u = demoUsers.find(x => x.email === email && x.password === pw.value);
+  if (!u) return msg.textContent = 'Incorrect email or password.';
+  sessionStorage.setItem('user', JSON.stringify({ name: u.name, role: u.role }));
+  location.href = 'dashboard.html';
 };
 
 // 3. Search and filter organizations
