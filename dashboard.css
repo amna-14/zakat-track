@@ -1,0 +1,8 @@
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:8px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);font-size:.92rem}
+th{background:var(--soft);font-weight:600}
+#menu{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 24px}
+#content{min-height:200px}
+.denied{border-color:#b42318}
+.denied h3{color:#b42318}
+.small{padding:4px 12px;font-size:.85rem}
