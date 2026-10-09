@@ -1,0 +1,21 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ZakatTrack | Donation History</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="dashboard.css"></head><body>
+<header><a class="brand" href="dashboard.html"><img class="logo" src="logo.png" alt="" onerror="this.style.display='none'"><span>ZakatTrack</span></a><nav><a href="dashboard.html">Dashboard</a><button id="logout" class="btn alt small">Logout</button></nav></header>
+<main>
+<h2>Donation History</h2>
+<div id="denied" class="card denied" hidden><h3>Access Denied</h3><p>Only donors can view donation history. <a href="dashboard.html">Back to dashboard</a></p></div>
+<div id="app" hidden>
+<p class="note">You can only see your own donations. Beneficiaries are shown by initials only.</p>
+<form id="ff" class="card filters" novalidate>
+<div><label for="q">Search by reference or organization</label><input id="q" maxlength="30" placeholder="e.g. D-1001 or Noor" autocomplete="off"></div>
+<div><label for="st">Status</label><select id="st"><option value="">All</option><option>Payment confirmed</option><option>Received by NGO</option><option>Distributed</option></select></div>
+<div><label for="tp">Type</label><select id="tp"><option value="">All</option><option>Zakat</option><option>Sadaqah</option><option>General charity</option></select></div>
+<div><button class="btn alt" type="button" id="reset">Reset</button></div>
+</form>
+<p class="err" id="qerr"></p>
+<div class="summary"><span id="count"></span><span id="sum"></span></div>
+<table><thead><tr><th>Ref</th><th>Organization</th><th>Type</th><th>Amount</th><th>Status</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+<p class="msg" id="none" hidden>No donations match your search.</p>
+<div id="detail" class="card" style="margin-top:18px" hidden></div>
+</div>
+</main>
+<footer>ZakatTrack | Secure Software Development semester project | Prototype only, no real payments</footer><script src="donations.js"></script></body></html>
