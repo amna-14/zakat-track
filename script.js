@@ -10,7 +10,7 @@ if (tg) tg.onclick = () => {
 
 // 2. Login with demo users (demo only, real authentication comes with the backend)
 const demoUsers = [
-    { email: 'amna@zakattrack.pk', password: 'Donor@1234', name: 'Amna', role: 'donor' },
+  { email: 'amna@zakattrack.pk', password: 'Donor@1234', name: 'Amna', role: 'donor' },
   { email: 'bilal@zakattrack.pk', password: 'Ngo@12345', name: 'Bilal', role: 'ngo' }
 ];
 const lf = $('#loginForm');
@@ -66,5 +66,11 @@ if (df) {
     msg.textContent = 'Thank you! Your donation was recorded (demo only, no real payment).';
   };
 }
+
 // Clear the login form when the page is shown again (for example with the Back button after logout)
 window.addEventListener('pageshow', () => { if (lf) { lf.reset(); $('#loginMsg').textContent = ''; pw.type = 'password'; tg.textContent = 'Show'; } });
+
+// If someone is logged in, the Login link in the menu becomes a Dashboard link
+try {
+  if (sessionStorage.getItem('user')) document.querySelectorAll('nav a[href="login.html"]').forEach(a => { a.textContent = 'Dashboard'; a.href = 'dashboard.html'; });
+} catch (e) {}

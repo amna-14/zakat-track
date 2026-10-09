@@ -6,3 +6,12 @@ th{background:var(--soft);font-weight:600}
 .denied{border-color:#b42318}
 .denied h3{color:#b42318}
 .small{padding:4px 12px;font-size:.85rem}
+.err{color:#b42318;font-size:.85rem;margin:4px 0 0;min-height:1.1em}
+.ok{color:#15803d}
+.counter{font-size:.8rem;color:var(--muted);text-align:right}
+.steps{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.step{padding:4px 12px;border-radius:14px;border:1px solid var(--line);font-size:.85rem;color:var(--muted);background:#fff}
+.step.done{background:var(--soft);color:var(--brand);border-color:var(--brand)}
+.filters{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:end}
+@media(max-width:640px){.filters{grid-template-columns:1fr}}
+.summary{display:flex;justify-content:space-between;margin:12px 0;font-size:.9rem;color:var(--muted)}

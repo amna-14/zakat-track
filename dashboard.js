@@ -76,7 +76,9 @@ function show() {
 if (user) {
   $('#who').textContent = `Welcome, ${user.name} (${user.role === 'ngo' ? 'NGO Representative' : 'Donor'})`;
   $('#menu').innerHTML = menu[user.role].map(([k, t]) => `<a class="btn alt" href="#${k}">${t}</a>`).join('') +
-    (user.role === 'donor' ? '<a class="btn" href="donate.html">Donate</a>' : '');
+    (user.role === 'donor'
+      ? '<a class="btn alt" href="track-donations.html">Donation History</a><a class="btn" href="donate.html">Donate</a>'
+      : '<a class="btn" href="register-beneficiary.html">Register Beneficiary</a>');
   window.onhashchange = show;
   show();
 }
