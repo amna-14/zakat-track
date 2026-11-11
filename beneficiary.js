@@ -30,8 +30,24 @@ function start() {
   const NAME_OK = /^[A-Za-z][A-Za-z .'-]*$/;
   const REASON_OK = /^[A-Za-z0-9 .,'()\-:;!?\/]+$/;   // no < > { } " ` & etc.
 
+  // File rules (Activity 5, Task 3)
+  const DOC_EXT = ['pdf', 'jpg', 'jpeg', 'png'];
+  const DOC_MAX = 2 * 1024 * 1024;   // 2 MB
+  const DOC_NOTE = 'Allowed: PDF, JPG, JPEG, PNG. Maximum size: 2 MB.';
+
   // Remove hidden control characters, turn any run of spaces/tabs/new lines into one space, trim both ends
   const clean = s => String(s).replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // Returns an error message, or an empty string if the file is acceptable
+  function checkDoc(file) {
+    if (!file) return '';
+    const dot = file.name.lastIndexOf('.');
+    const ext = dot > 0 ? file.name.slice(dot + 1).toLowerCase() : '';
+    if (!DOC_EXT.includes(ext)) return 'Unsupported file type. Please choose a PDF, JPG, JPEG or PNG file.';
+    if (file.size === 0) return 'This file is empty. Please choose another file.';
+    if (file.size > DOC_MAX) return 'File is too large (' + (file.size / 1048576).toFixed(1) + ' MB). The maximum size is 2 MB.';
+    return '';
+  }
 
   function cell(tr, text) { const td = document.createElement('td'); td.textContent = text; tr.appendChild(td); return td; }
 
@@ -77,6 +93,15 @@ function start() {
     if (f === 'reason') $('#count').textContent = e.target.value.length;
   }));
 
+  // File selection: check the file as soon as it is chosen; reject it and clear the box if it is not allowed
+  $('#doc').addEventListener('change', e => {
+    const file = e.target.files[0];
+    const err = checkDoc(file);
+    setErr('doc', err);
+    if (err) { e.target.value = ''; $('#docinfo').textContent = DOC_NOTE; return; }
+    $('#docinfo').textContent = file ? 'Selected: ' + file.name + ' (' + Math.max(1, Math.round(file.size / 1024)) + ' KB)' : DOC_NOTE;
+  });
+
   // Interaction 3: form validation, then add the new record to the list
   $('#bf').onsubmit = e => {
     e.preventDefault();
@@ -86,6 +111,7 @@ function start() {
     const reason = clean($('#reason').value);
     const msg = $('#bmsg');
     fields.forEach(f => setErr(f, ''));
+    setErr('doc', '');
     msg.textContent = ''; msg.className = 'msg';
     let ok = true;
     const bad = (id, t) => { setErr(id, t); ok = false; };
@@ -113,13 +139,19 @@ function start() {
     else if (reason.length > REASON_MAX) bad('reason', 'Reason must be at most ' + REASON_MAX + ' characters.');
     else if (!REASON_OK.test(reason)) bad('reason', 'Reason can contain only letters, numbers, spaces and . , - \' ( ) : ; ! ? /');
 
+    // Supporting document (optional): checked again on submit
+    const file = $('#doc').files[0];
+    const docErr = checkDoc(file);
+    if (docErr) bad('doc', docErr);
+
     if (!ok) { msg.textContent = 'Please fix the highlighted fields.'; return; }
 
     const ref = 'B-' + String(list.length + 1).padStart(3, '0');
-    list.push({ ref, name, cnic, city, need, reason, status: 'Pending verification' });
+    list.push({ ref, name, cnic, city, need, reason, doc: file ? file.name : '', status: 'Pending verification' });
     render();
     $('#bf').reset();
     $('#count').textContent = '0';
+    $('#docinfo').textContent = DOC_NOTE;
     msg.className = 'msg ok';
     msg.textContent = `Beneficiary ${ref} registered. Status: pending verification by the administrator.`;
   };
