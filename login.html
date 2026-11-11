@@ -2,11 +2,12 @@
 <header><a class="brand" href="index.html"><img class="logo" src="logo.png" alt="" onerror="this.style.display='none'"><span>ZakatTrack</span></a><nav><a href="index.html">Home</a><a href="login.html">Login</a><a href="donate.html">Donate</a></nav></header>
 <main><div class="card box"><h2>Donor Login</h2>
 <form id="loginForm" novalidate autocomplete="off">
-<label for="email">Email</label><input id="email" type="email" autocomplete="username" placeholder="you@example.com">
+<label for="email">Email</label><input id="email" type="email" maxlength="100" autocomplete="username" placeholder="you@example.com">
 <label for="password">Password</label>
-<div class="row"><input id="password" type="password" autocomplete="current-password" placeholder="At least 8 characters"><button type="button" id="toggle" class="btn alt">Show</button></div>
+<div class="row"><input id="password" type="password" maxlength="64" autocomplete="current-password" placeholder="At least 8 characters"><button type="button" id="toggle" class="btn alt">Show</button></div>
 <p class="msg" id="loginMsg" role="alert"></p>
 <button class="btn" type="submit">Login</button>
 </form>
+<p class="note">New donor? <a href="register.html">Create an account</a></p>
 <p class="note"><b>Demo accounts</b><br>Donor: amna@zakattrack.pk / Donor@1234<br>NGO Representative: bilal@zakattrack.pk / Ngo@12345<br>These are test accounts only. Real registration and authentication come with the backend.</p></div></main>
 <footer>ZakatTrack | Secure Software Development semester project | Prototype only, no real payments</footer><script src="script.js"></script></body></html>
