@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ZakatTrack | Donate</title><link rel="stylesheet" href="style.css"></head><body>
 <header><a class="brand" href="index.html"><img class="logo" src="logo.png" alt="" onerror="this.style.display='none'"><span>ZakatTrack</span></a><nav><a href="index.html">Home</a><a href="login.html">Login</a><a href="donate.html">Donate</a></nav></header>
 <main><h2>Make a Donation</h2>
-<div class="row"><input id="search" placeholder="Search organizations..."><select id="city"><option value="">All cities</option><option>Faisalabad</option><option>Lahore</option><option>Karachi</option></select></div>
+<div class="row"><input id="search" maxlength="30" placeholder="Search organizations..." autocomplete="off"><select id="city"><option value="">All cities</option><option>Faisalabad</option><option>Lahore</option><option>Karachi</option></select></div>
 <div class="grid" style="grid-template-columns:1fr">
 <div class="card ngo" data-name="Al-Khidmat Welfare" data-city="Lahore"><div><h3>Al-Khidmat Welfare</h3><p><span class="tag">Verified</span>Lahore | Food and education aid</p></div><button class="btn alt">Select</button></div>
 <div class="card ngo" data-name="Noor Zakat Committee" data-city="Faisalabad"><div><h3>Noor Zakat Committee</h3><p><span class="tag">Verified</span>Faisalabad | Widow and orphan support</p></div><button class="btn alt">Select</button></div>
@@ -11,11 +11,13 @@
 <form id="donateForm" class="card" style="margin-top:20px" novalidate>
 <p>Selected organization: <b id="chosen">None</b></p>
 <label for="type">Donation type</label><select id="type"><option>Zakat</option><option>Sadaqah</option><option>General charity</option></select>
-<label for="amount">Amount (Rs.)</label><input id="amount" type="number" min="100" placeholder="Minimum 100">
+<label for="amount">Amount (Rs.)</label><input id="amount" type="number" min="100" max="1000000" step="1" inputmode="numeric" placeholder="Minimum 100, maximum 1,000,000">
+<label for="note">Message to the organization (optional)</label><textarea id="note" rows="2" maxlength="100" autocomplete="off" placeholder="Up to 100 characters"></textarea><div style="font-size:.8rem;text-align:right;color:#66736d"><span id="ncount">0</span>/100</div>
 <label><input id="anon" type="checkbox" style="width:auto"> Donate anonymously</label>
 <p class="msg" id="donMsg" role="alert"></p>
 <button class="btn" type="submit">Review Donation</button>
 <p class="note">No card or bank details are collected here. Payment will go through a trusted gateway later.</p>
-</form></main>
+</form>
+<div id="notesBox" class="card" style="margin-top:20px" hidden><h3>Your messages this session</h3><ul id="notes"></ul></div></main>
 <div id="modal" hidden><div class="card"><h3>Confirm donation</h3><p id="summary"></p><button class="btn" id="confirm">Confirm</button> <button class="btn alt" id="cancel">Cancel</button></div></div>
 <footer>ZakatTrack | Secure Software Development semester project | Prototype only, no real payments</footer><script src="script.js"></script></body></html>
