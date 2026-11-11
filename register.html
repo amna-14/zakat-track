@@ -1,0 +1,20 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ZakatTrack | Create Account</title><link rel="stylesheet" href="style.css"></head><body>
+<header><a class="brand" href="index.html"><img class="logo" src="logo.png" alt="" onerror="this.style.display='none'"><span>ZakatTrack</span></a><nav><a href="index.html">Home</a><a href="login.html">Login</a><a href="donate.html">Donate</a></nav></header>
+<main><div class="card box"><h2>Create Donor Account</h2>
+<form id="regForm" novalidate autocomplete="off">
+<label for="rname">Full name</label><input id="rname" maxlength="60" autocomplete="off">
+<label for="remail">Email</label><input id="remail" type="email" maxlength="100" autocomplete="off" placeholder="you@example.com">
+<label for="rpass">Password</label><input id="rpass" type="password" maxlength="64" autocomplete="new-password" placeholder="At least 8 characters">
+<div id="strength" aria-live="polite" style="margin-top:8px" hidden>
+<div style="height:8px;background:#e4e8e5;border-radius:4px;overflow:hidden"><div id="sBar" style="height:100%;width:0;background:#b42318"></div></div>
+<p id="sLevel" style="margin:6px 0 0;font-weight:600;font-size:.92rem"></p>
+<p id="sMsg" style="margin:2px 0 0;font-size:.85rem;color:#66736d"></p>
+</div>
+<label for="rpass2">Confirm password</label><input id="rpass2" type="password" maxlength="64" autocomplete="new-password">
+<p class="msg" id="rmsg" role="alert"></p>
+<button class="btn" type="submit">Create Account</button>
+</form>
+<p class="note">Demo only: no account is saved and the password is never stored. Real registration comes with the backend.</p></div></main>
+<footer>ZakatTrack | Secure Software Development semester project | Prototype only, no real payments</footer>
+<script src="password_strength_helper.js"></script>
+<script src="register.js"></script></body></html>
