@@ -2,8 +2,7 @@
 const $ = s => document.querySelector(s);
 const user = JSON.parse(sessionStorage.getItem('user') || 'null');
 if (!user) location.replace('login.html');
-$('#logout').onclick = () => { sessionStorage.removeItem('user'); location.replace('login.html'); };
-window.addEventListener('pageshow', () => { if (!sessionStorage.getItem('user')) location.replace('login.html'); });
+$('#logout').onclick = () => { $('#bf').reset(); $('#rows').textContent = ''; $('#app').hidden = true; sessionStorage.clear(); location.replace('login.html'); };window.addEventListener('pageshow', () => { if (!sessionStorage.getItem('user')) location.replace('login.html'); });
 
 // Role check: only an NGO representative can use this module
 if (user && user.role === 'ngo') {
