@@ -22,6 +22,17 @@ function start() {
   const shown = new Set();
   const mask = c => c.slice(0, 6) + '*******-' + c.slice(-1);
 
+  // Security rules (Activity 5, Task 1)
+  const ALLOWED_CITIES = ['Faisalabad', 'Lahore', 'Karachi', 'Multan'];
+  const ALLOWED_NEEDS = ['Food', 'Medical', 'Education', 'Shelter'];
+  const NAME_MIN = 3, NAME_MAX = 60;
+  const REASON_MIN = 10, REASON_MAX = 200;
+  const NAME_OK = /^[A-Za-z][A-Za-z .'-]*$/;
+  const REASON_OK = /^[A-Za-z0-9 .,'()\-:;!?\/]+$/;   // no < > { } " ` & etc.
+
+  // Remove hidden control characters, turn any run of spaces/tabs/new lines into one space, trim both ends
+  const clean = s => String(s).replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim();
+
   function cell(tr, text) { const td = document.createElement('td'); td.textContent = text; tr.appendChild(td); return td; }
 
   function render() {
@@ -51,32 +62,56 @@ function start() {
   $('#reason').addEventListener('input', e => { $('#count').textContent = e.target.value.length; });
 
   const fields = ['name', 'cnic', 'city', 'need', 'reason'];
-  function setErr(id, text) { $('#e-' + id).textContent = text; }
+  // Show or clear an error under a field and mark the field with a red border
+  function setErr(id, text) {
+    $('#e-' + id).textContent = text;
+    $('#' + id).style.borderColor = text ? '#b42318' : '';
+    $('#' + id).setAttribute('aria-invalid', text ? 'true' : 'false');
+  }
   fields.forEach(f => $('#' + f).addEventListener('input', () => setErr(f, '')));
   fields.forEach(f => $('#' + f).addEventListener('change', () => setErr(f, '')));
+
+  // Remove extra spaces as soon as the user leaves a text box
+  ['name', 'reason'].forEach(f => $('#' + f).addEventListener('blur', e => {
+    e.target.value = clean(e.target.value);
+    if (f === 'reason') $('#count').textContent = e.target.value.length;
+  }));
 
   // Interaction 3: form validation, then add the new record to the list
   $('#bf').onsubmit = e => {
     e.preventDefault();
-    const name = $('#name').value.trim().replace(/\s+/g, ' ');
+    const name = clean($('#name').value);
     const cnic = $('#cnic').value.trim();
     const city = $('#city').value, need = $('#need').value;
-    const reason = $('#reason').value.trim();
+    const reason = clean($('#reason').value);
     const msg = $('#bmsg');
     fields.forEach(f => setErr(f, ''));
     msg.textContent = ''; msg.className = 'msg';
     let ok = true;
     const bad = (id, t) => { setErr(id, t); ok = false; };
 
+    // Full name: required, 3 to 60 characters, letters and a few safe symbols
     if (!name) bad('name', 'Full name is required.');
-    else if (name.length < 3 || name.length > 60 || !/^[A-Za-z][A-Za-z .'-]*$/.test(name)) bad('name', 'Use 3 to 60 letters (spaces, . - and apostrophe allowed).');
+    else if (name.length < NAME_MIN) bad('name', 'Full name must be at least ' + NAME_MIN + ' characters.');
+    else if (name.length > NAME_MAX) bad('name', 'Full name must be at most ' + NAME_MAX + ' characters.');
+    else if (!NAME_OK.test(name)) bad('name', 'Use letters only (spaces, . - and apostrophe allowed).');
+
+    // CNIC: required, exact format, no duplicates
     if (!cnic) bad('cnic', 'CNIC is required.');
     else if (!/^\d{5}-\d{7}-\d$/.test(cnic)) bad('cnic', 'Enter a valid CNIC like 12345-1234567-1.');
     else if (list.some(p => p.cnic === cnic)) bad('cnic', 'A beneficiary with this CNIC is already registered.');
+
+    // City and need: required, and must be one of the real options (blocks values changed in browser tools)
     if (!city) bad('city', 'Please select a city.');
+    else if (!ALLOWED_CITIES.includes(city)) bad('city', 'Please choose a city from the list.');
     if (!need) bad('need', 'Please select a type of need.');
+    else if (!ALLOWED_NEEDS.includes(need)) bad('need', 'Please choose a need from the list.');
+
+    // Reason: required, 10 to 200 characters, safe characters only
     if (!reason) bad('reason', 'Please give a short reason.');
-    else if (reason.length < 10) bad('reason', 'Reason must be at least 10 characters.');
+    else if (reason.length < REASON_MIN) bad('reason', 'Reason must be at least ' + REASON_MIN + ' characters.');
+    else if (reason.length > REASON_MAX) bad('reason', 'Reason must be at most ' + REASON_MAX + ' characters.');
+    else if (!REASON_OK.test(reason)) bad('reason', 'Reason can contain only letters, numbers, spaces and . , - \' ( ) : ; ! ? /');
 
     if (!ok) { msg.textContent = 'Please fix the highlighted fields.'; return; }
 
