@@ -1,6 +1,7 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ZakatTrack | Donor Login</title><link rel="stylesheet" href="style.css"></head><body>
-<header><a class="brand" href="index.html"><img class="logo" src="logo.png" alt="" onerror="this.style.display='none'"><span>ZakatTrack</span></a><nav><a href="index.html">Home</a><a href="login.html">Login</a><a href="donate.html">Donate</a></nav></header>
-<main><div class="card box"><h2>Donor Login</h2>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ZakatTrack | Login</title><link rel="stylesheet" href="style.css"></head><body>
+<header><a class="brand" href="index.html"><img class="logo" src="logo.png" alt=""><span>ZakatTrack</span></a><nav><a href="index.html">Home</a><a href="login.html">Login</a><a href="donate.html">Donate</a></nav></header>
+<main><div class="card box"><h2>Login</h2>
+<p class="msg" id="expired" role="status" hidden>Your session has ended. Please log in again.</p>
 <form id="loginForm" novalidate autocomplete="off">
 <label for="email">Email</label><input id="email" type="email" maxlength="100" autocomplete="username" placeholder="you@example.com">
 <label for="password">Password</label>
@@ -9,5 +10,5 @@
 <button class="btn" type="submit">Login</button>
 </form>
 <p class="note">New donor? <a href="register.html">Create an account</a></p>
-<p class="note"><b>Demo accounts</b><br>Donor: amna@zakattrack.pk / Donor@1234<br>NGO Representative: bilal@zakattrack.pk / Ngo@12345<br>These are test accounts only. Real registration and authentication come with the backend.</p></div></main>
-<footer>ZakatTrack | Secure Software Development semester project | Prototype only, no real payments</footer><script src="script.js"></script></body></html>
+<p class="note">Donors and NGO representatives use the same login. Your password is checked securely on the server.</p></div></main>
+<footer>ZakatTrack | Secure Software Development semester project | Prototype only, no real payments</footer><script src="config.js"></script><script src="api.js"></script><script src="script.js"></script></body></html>
