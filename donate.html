@@ -1,13 +1,10 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ZakatTrack | Donate</title><link rel="stylesheet" href="style.css"></head><body>
-<header><a class="brand" href="index.html"><img class="logo" src="logo.png" alt="" onerror="this.style.display='none'"><span>ZakatTrack</span></a><nav><a href="index.html">Home</a><a href="login.html">Login</a><a href="donate.html">Donate</a></nav></header>
+<header><a class="brand" href="index.html"><img class="logo" src="logo.png" alt=""><span>ZakatTrack</span></a><nav><a href="index.html">Home</a><a href="login.html">Login</a><a href="donate.html">Donate</a></nav></header>
 <main><h2>Make a Donation</h2>
 <div class="row"><input id="search" maxlength="30" placeholder="Search organizations..." autocomplete="off"><select id="city"><option value="">All cities</option><option>Faisalabad</option><option>Lahore</option><option>Karachi</option></select></div>
-<div class="grid" style="grid-template-columns:1fr">
-<div class="card ngo" data-name="Al-Khidmat Welfare" data-city="Lahore"><div><h3>Al-Khidmat Welfare</h3><p><span class="tag">Verified</span>Lahore | Food and education aid</p></div><button class="btn alt">Select</button></div>
-<div class="card ngo" data-name="Noor Zakat Committee" data-city="Faisalabad"><div><h3>Noor Zakat Committee</h3><p><span class="tag">Verified</span>Faisalabad | Widow and orphan support</p></div><button class="btn alt">Select</button></div>
-<div class="card ngo" data-name="Sehat Care Trust" data-city="Karachi"><div><h3>Sehat Care Trust</h3><p><span class="tag">Verified</span>Karachi | Medical treatment help</p></div><button class="btn alt">Select</button></div>
-</div>
+<div class="grid" id="orgs" style="grid-template-columns:1fr"><p class="note" id="orgLoading">Loading organizations...</p></div>
 <p class="msg" id="none" hidden>No organizations match your search.</p>
+<p class="note" id="loginHint" hidden>You need to <a href="login.html">log in as a donor</a> to make a donation.</p>
 <form id="donateForm" class="card" style="margin-top:20px" novalidate>
 <p>Selected organization: <b id="chosen">None</b></p>
 <label for="type">Donation type</label><select id="type"><option>Zakat</option><option>Sadaqah</option><option>General charity</option></select>
@@ -16,8 +13,8 @@
 <label><input id="anon" type="checkbox" style="width:auto"> Donate anonymously</label>
 <p class="msg" id="donMsg" role="alert"></p>
 <button class="btn" type="submit">Review Donation</button>
-<p class="note">No card or bank details are collected here. Payment will go through a trusted gateway later.</p>
+<p class="note">No card or bank details are collected here. Payment will go through a trusted gateway later. Donations are saved to your account on the server.</p>
 </form>
-<div id="notesBox" class="card" style="margin-top:20px" hidden><h3>Your messages this session</h3><ul id="notes"></ul></div></main>
+<div id="notesBox" class="card" style="margin-top:20px" hidden><h3>Donations made just now</h3><ul id="notes"></ul></div></main>
 <div id="modal" hidden><div class="card"><h3>Confirm donation</h3><p id="summary"></p><button class="btn" id="confirm">Confirm</button> <button class="btn alt" id="cancel">Cancel</button></div></div>
-<footer>ZakatTrack | Secure Software Development semester project | Prototype only, no real payments</footer><script src="script.js"></script></body></html>
+<footer>ZakatTrack | Secure Software Development semester project | Prototype only, no real payments</footer><script src="config.js"></script><script src="api.js"></script><script src="script.js"></script></body></html>
