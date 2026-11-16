@@ -1,10 +1,11 @@
 // Module 2: Donation History, search and details (Donor only)
+// Activity 6: the list now comes from the backend (GET /api/donations/mine). The server returns
+// only the logged-in donor's own donations, so other donors' records never reach this page.
 const $ = s => document.querySelector(s);
-const user = JSON.parse(sessionStorage.getItem('user') || 'null');
-if (!user) location.replace('login.html');
-$('#logout').onclick = () => { $('#ff').reset(); $('#rows').textContent = ''; $('#detail').textContent = ''; $('#detail').hidden = true; $('#app').hidden = true; sessionStorage.clear(); location.replace('login.html'); };window.addEventListener('pageshow', () => { if (!sessionStorage.getItem('user')) location.replace('login.html'); });
+const user = ZT.requireLogin();
+$('#logout').onclick = () => { $('#ff').reset(); $('#rows').textContent = ''; $('#detail').textContent = ''; $('#detail').hidden = true; $('#app').hidden = true; ZT.logout(); };
 
-// Role check: only a donor can use this module
+// Role check for the screen (the server also refuses non-donors with 403)
 if (user && user.role === 'donor') {
   $('#app').hidden = false;
   start();
@@ -12,18 +13,13 @@ if (user && user.role === 'donor') {
   $('#denied').hidden = false;
 }
 
-function start() {
+async function start() {
   const STAGES = ['Payment confirmed', 'Received by NGO', 'Distributed'];
-  // Sample data. Records belong to a donor, and each donor sees only their own.
-  const all = [
-    { ref: 'D-1001', donor: 'Amna', org: 'Noor Zakat Committee', type: 'Zakat', amt: 5000, date: '2026-09-12', status: 'Distributed', to: 'Z. I.' },
-    { ref: 'D-1002', donor: 'Amna', org: 'Noor Zakat Committee', type: 'Sadaqah', amt: 1500, date: '2026-09-20', status: 'Received by NGO', to: '' },
-    { ref: 'D-1003', donor: 'Amna', org: 'Al-Khidmat Welfare', type: 'General charity', amt: 2500, date: '2026-09-25', status: 'Distributed', to: 'I. S.' },
-    { ref: 'D-1004', donor: 'Amna', org: 'Sehat Care Trust', type: 'Zakat', amt: 10000, date: '2026-10-01', status: 'Payment confirmed', to: '' },
-    { ref: 'D-1005', donor: 'Amna', org: 'Al-Khidmat Welfare', type: 'Sadaqah', amt: 800, date: '2026-10-03', status: 'Received by NGO', to: '' },
-    { ref: 'D-2001', donor: 'Another donor', org: 'Sehat Care Trust', type: 'Zakat', amt: 20000, date: '2026-09-30', status: 'Distributed', to: 'M. K.' }
-  ];
-  const mine = all.filter(d => d.donor === user.name);
+  $('#count').textContent = 'Loading your donations...';
+  const r = await ZT.request('/api/donations/mine');
+  if (!r.ok) { $('#count').textContent = ''; $('#qerr').textContent = r.data.error; return; }
+  // Map the server fields to the names this page already uses
+  const mine = r.data.donations.map(d => ({ ref: d.ref, org: d.organization, type: d.type, amt: d.amount, date: d.date, status: d.status, to: d.beneficiary, note: d.note }));
 
   function cell(tr, text) { const td = document.createElement('td'); td.textContent = text; tr.appendChild(td); return td; }
   function line(parent, label, value) {
@@ -39,6 +35,7 @@ function start() {
     const h = document.createElement('h3'); h.textContent = 'Donation ' + d.ref; box.appendChild(h);
     line(box, 'Organization', d.org); line(box, 'Type', d.type);
     line(box, 'Amount', 'Rs. ' + d.amt); line(box, 'Date', d.date);
+    if (d.note) line(box, 'Your message', d.note);   // shown with createTextNode, so it is never run as HTML
     const steps = document.createElement('div'); steps.className = 'steps';
     STAGES.forEach((s, i) => {
       const x = document.createElement('span');
