@@ -1,5 +1,5 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ZakatTrack | Register Beneficiary</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="dashboard.css"></head><body>
-<header><a class="brand" href="dashboard.html"><img class="logo" src="logo.png" alt="" onerror="this.style.display='none'"><span>ZakatTrack</span></a><nav><a href="dashboard.html">Dashboard</a><button id="logout" class="btn alt small">Logout</button></nav></header>
+<header><a class="brand" href="dashboard.html"><img class="logo" src="logo.png" alt=""><span>ZakatTrack</span></a><nav><a href="dashboard.html">Dashboard</a><button id="logout" class="btn alt small">Logout</button></nav></header>
 <main>
 <h2>Register Beneficiary</h2>
 <div id="denied" class="card denied" hidden><h3>Access Denied</h3><p>Only NGO representatives can register beneficiaries. <a href="dashboard.html">Back to dashboard</a></p></div>
@@ -16,8 +16,8 @@
 <button class="btn" type="submit">Register Beneficiary</button>
 </form>
 <h3 style="margin-top:28px">Registered Beneficiaries (<span id="total">0</span>)</h3>
-<table><thead><tr><th>Ref</th><th>Name</th><th>CNIC</th><th>City</th><th>Need</th><th>Status</th></tr></thead><tbody id="rows"></tbody></table>
-<p class="note">CNIC is masked by default. Data is kept in this page only and resets on refresh.</p>
+<table><thead><tr><th>Ref</th><th>Name</th><th>CNIC</th><th>City</th><th>Need</th><th>Status</th><th>Document</th></tr></thead><tbody id="rows"></tbody></table>
+<p class="note">CNIC is masked by default. Records are saved in the database and only representatives of your organization can see them.</p>
 </div>
 </main>
-<footer>ZakatTrack | Secure Software Development semester project | Prototype only, no real payments</footer><script src="beneficiary.js"></script></body></html>
+<footer>ZakatTrack | Secure Software Development semester project | Prototype only, no real payments</footer><script src="config.js"></script><script src="api.js"></script><script src="beneficiary.js"></script></body></html>
