@@ -1,10 +1,11 @@
 // Module 1: Register Beneficiary (NGO Representative only)
+// Activity 6: records are saved to and loaded from the backend (POST/GET /api/beneficiaries).
+// The server checks the JWT, the NGO role, every field and the uploaded file again.
 const $ = s => document.querySelector(s);
-const user = JSON.parse(sessionStorage.getItem('user') || 'null');
-if (!user) location.replace('login.html');
-$('#logout').onclick = () => { $('#bf').reset(); $('#rows').textContent = ''; $('#app').hidden = true; sessionStorage.clear(); location.replace('login.html'); };window.addEventListener('pageshow', () => { if (!sessionStorage.getItem('user')) location.replace('login.html'); });
+const user = ZT.requireLogin();
+$('#logout').onclick = () => { $('#bf').reset(); $('#rows').textContent = ''; $('#app').hidden = true; ZT.logout(); };
 
-// Role check: only an NGO representative can use this module
+// Role check for the screen (the server also refuses non-NGO users with 403)
 if (user && user.role === 'ngo') {
   $('#app').hidden = false;
   start();
@@ -13,13 +14,7 @@ if (user && user.role === 'ngo') {
 }
 
 function start() {
-  // Sample records (no database needed for this activity)
-  const list = [
-    { ref: 'B-001', name: 'Zainab Iqbal', cnic: '33100-1234567-2', city: 'Faisalabad', need: 'Food', status: 'Verified' },
-    { ref: 'B-002', name: 'Imran Shah', cnic: '33100-7654321-5', city: 'Faisalabad', need: 'Medical', status: 'Verified' }
-  ];
-  const shown = new Set();
-  const mask = c => c.slice(0, 6) + '*******-' + c.slice(-1);
+  let list = [];   // filled from the server
 
   // Security rules (Activity 5, Task 1)
   const ALLOWED_CITIES = ['Faisalabad', 'Lahore', 'Karachi', 'Multan'];
@@ -50,22 +45,53 @@ function start() {
 
   function cell(tr, text) { const td = document.createElement('td'); td.textContent = text; tr.appendChild(td); return td; }
 
+  // Load the organization's beneficiaries from the server and show them (text only, never HTML)
+  async function load() {
+    const r = await ZT.request('/api/beneficiaries');
+    if (!r.ok) { const m = $('#bmsg'); m.className = 'msg'; m.textContent = r.data.error; return; }
+    list = r.data.beneficiaries;
+    render();
+  }
+
   function render() {
     const body = $('#rows');
     body.textContent = '';
     list.forEach(p => {
       const tr = document.createElement('tr');
       cell(tr, p.ref); cell(tr, p.name);
-      const td = cell(tr, shown.has(p.ref) ? p.cnic : mask(p.cnic));
+      const td = cell(tr, '');
+      const span = document.createElement('span'); span.textContent = p.cnic;   // masked by the server
       const b = document.createElement('button');
-      b.type = 'button'; b.className = 'btn alt small'; b.style.marginLeft = '8px';
-      b.textContent = shown.has(p.ref) ? 'Hide' : 'Show';
-      b.onclick = () => { shown.has(p.ref) ? shown.delete(p.ref) : shown.add(p.ref); render(); };
-      td.appendChild(b);
+      b.type = 'button'; b.className = 'btn alt small'; b.style.marginLeft = '8px'; b.textContent = 'Show';
+      b.onclick = async () => {
+        if (b.textContent === 'Hide') { span.textContent = p.cnic; b.textContent = 'Show'; return; }
+        const r = await ZT.request('/api/beneficiaries/' + encodeURIComponent(p.ref) + '/cnic');   // full CNIC only on request
+        if (r.ok) { span.textContent = r.data.cnic; b.textContent = 'Hide'; }
+      };
+      td.append(span, b);
       cell(tr, p.city); cell(tr, p.need); cell(tr, p.status);
+      const dtd = cell(tr, p.has_document ? '' : '-');
+      if (p.has_document) {
+        const v = document.createElement('button');
+        v.type = 'button'; v.className = 'btn alt small'; v.textContent = 'Download';
+        v.onclick = () => download(p.ref);
+        dtd.appendChild(v);
+      }
       body.appendChild(tr);
     });
     $('#total').textContent = list.length;
+  }
+
+  // The document link needs the JWT, so it is fetched with the token and then saved
+  async function download(ref) {
+    const r = await ZT.request('/api/beneficiaries/' + encodeURIComponent(ref) + '/document', { raw: true });
+    if (!r.ok) { const m = $('#bmsg'); m.className = 'msg'; m.textContent = r.data.error; return; }
+    const url = URL.createObjectURL(r.blob);
+    const a = document.createElement('a');
+    const ext = { 'application/pdf': '.pdf', 'image/png': '.png', 'image/jpeg': '.jpg' }[r.blob.type] || '';
+    a.href = url; a.download = ref + '-document' + ext;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   // Interaction 1: CNIC is formatted automatically as the user types
@@ -102,7 +128,7 @@ function start() {
   });
 
   // Interaction 3: form validation, then add the new record to the list
-  $('#bf').onsubmit = e => {
+  $('#bf').onsubmit = async e => {
     e.preventDefault();
     const name = clean($('#name').value);
     const cnic = $('#cnic').value.trim();
@@ -121,10 +147,9 @@ function start() {
     else if (name.length > NAME_MAX) bad('name', 'Full name must be at most ' + NAME_MAX + ' characters.');
     else if (!NAME_OK.test(name)) bad('name', 'Use letters only (spaces, . - and apostrophe allowed).');
 
-    // CNIC: required, exact format, no duplicates
+    // CNIC: required, exact format (duplicates are checked by the server)
     if (!cnic) bad('cnic', 'CNIC is required.');
     else if (!/^\d{5}-\d{7}-\d$/.test(cnic)) bad('cnic', 'Enter a valid CNIC like 12345-1234567-1.');
-    else if (list.some(p => p.cnic === cnic)) bad('cnic', 'A beneficiary with this CNIC is already registered.');
 
     // City and need: required, and must be one of the real options (blocks values changed in browser tools)
     if (!city) bad('city', 'Please select a city.');
@@ -145,15 +170,28 @@ function start() {
 
     if (!ok) { msg.textContent = 'Please fix the highlighted fields.'; return; }
 
-    const ref = 'B-' + String(list.length + 1).padStart(3, '0');
-    list.push({ ref, name, cnic, city, need, reason, doc: file ? file.name : '', status: 'Pending verification' });
-    render();
+    // Activity 6: send the form (and the optional file) to the backend
+    const fd = new FormData();
+    fd.append('name', name); fd.append('cnic', cnic); fd.append('city', city); fd.append('need', need); fd.append('reason', reason);
+    if (file) fd.append('doc', file);
+    const btn = $('#bf button[type=submit]');
+    btn.disabled = true; msg.className = 'msg ok'; msg.textContent = 'Saving...';
+    const r = await ZT.request('/api/beneficiaries', { method: 'POST', form: fd });
+    btn.disabled = false;
+    if (!r.ok) {
+      // Show the server's message under each field it rejected
+      const f = r.data.fields || {};
+      Object.keys(f).forEach(k => { if ($('#e-' + k)) setErr(k, f[k]); });
+      msg.className = 'msg'; msg.textContent = r.data.error;
+      return;
+    }
     $('#bf').reset();
     $('#count').textContent = '0';
     $('#docinfo').textContent = DOC_NOTE;
     msg.className = 'msg ok';
-    msg.textContent = `Beneficiary ${ref} registered. Status: pending verification by the administrator.`;
+    msg.textContent = r.data.message;
+    load();
   };
 
-  render();
+  load();
 }
