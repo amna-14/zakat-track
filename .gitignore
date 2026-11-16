@@ -1,0 +1,11 @@
+# Backend secrets, installed packages, database and uploaded files must not go to GitHub
+server/.env
+server/node_modules/
+server/data/
+server/uploads/
+node_modules/
+.env
+*.db
+*.db-journal
+.DS_Store
+Thumbs.db
