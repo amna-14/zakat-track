@@ -1,0 +1,19 @@
+{
+  "name": "zakattrack-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ZakatTrack backend: Express + SQLite + JWT (Secure Software Development, Activity 6)",
+  "main": "server.js",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env server.js",
+    "test": "node --disable-warning=ExperimentalWarning tests/api-test.js",
+    "reset-db": "node --disable-warning=ExperimentalWarning database/reset.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2"
+  }
+}

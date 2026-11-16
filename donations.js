@@ -1,89 +1,94 @@
-// Module 2: Donation History, search and details (Donor only)
-// Activity 6: the list now comes from the backend (GET /api/donations/mine). The server returns
-// only the logged-in donor's own donations, so other donors' records never reach this page.
-const $ = s => document.querySelector(s);
-const user = ZT.requireLogin();
-$('#logout').onclick = () => { $('#ff').reset(); $('#rows').textContent = ''; $('#detail').textContent = ''; $('#detail').hidden = true; $('#app').hidden = true; ZT.logout(); };
+// MODULE 2: Donations (donor makes a donation and views history; NGO receives and distributes)
+const express = require('express');
+const { db, transaction } = require('../db');
+const { requireAuth, requireRole } = require('../middleware/auth');
+const { validateDonation, hasErrors, clean, RULES } = require('../validation');
 
-// Role check for the screen (the server also refuses non-donors with 403)
-if (user && user.role === 'donor') {
-  $('#app').hidden = false;
-  start();
-} else if (user) {
-  $('#denied').hidden = false;
-}
+const router = express.Router();
+router.use(requireAuth);   // every donation route needs a valid JWT
 
-async function start() {
-  const STAGES = ['Payment confirmed', 'Received by NGO', 'Distributed'];
-  $('#count').textContent = 'Loading your donations...';
-  const r = await ZT.request('/api/donations/mine');
-  if (!r.ok) { $('#count').textContent = ''; $('#qerr').textContent = r.data.error; return; }
-  // Map the server fields to the names this page already uses
-  const mine = r.data.donations.map(d => ({ ref: d.ref, org: d.organization, type: d.type, amt: d.amount, date: d.date, status: d.status, to: d.beneficiary, note: d.note }));
+const initials = name => (name ? name.split(' ').filter(Boolean).map(w => w[0].toUpperCase() + '.').join(' ') : '');
 
-  function cell(tr, text) { const td = document.createElement('td'); td.textContent = text; tr.appendChild(td); return td; }
-  function line(parent, label, value) {
-    const p = document.createElement('p'); p.style.margin = '4px 0';
-    const b = document.createElement('b'); b.textContent = label + ': ';
-    p.appendChild(b); p.appendChild(document.createTextNode(value)); parent.appendChild(p);
+// POST /api/donations  (donor only) - make a donation
+router.post('/', requireRole('donor'), (req, res) => {
+  const { errors, value } = validateDonation(req.body || {});
+  if (hasErrors(errors)) return res.status(400).json({ error: Object.values(errors)[0], fields: errors });
+
+  const org = db.prepare('SELECT id, name FROM organizations WHERE id = ? AND verified = 1').get(value.orgId);
+  if (!org) return res.status(400).json({ error: 'Please select a verified organization.', fields: { orgId: 'Unknown organization.' } });
+
+  const ref = transaction(() => {
+    const next = db.prepare('SELECT COALESCE(MAX(id), 0) + 1001 AS n FROM donations').get().n;
+    const ref = 'D-' + next;
+    // Parameterised query: user input is passed separately, never joined into the SQL text
+    db.prepare(`INSERT INTO donations (ref, donor_id, org_id, type, amount, note, anonymous)
+                VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .run(ref, req.user.id, org.id, value.type, value.amount, value.note, value.anonymous ? 1 : 0);
+    return ref;
+  });
+
+  res.status(201).json({
+    message: `Donation ${ref} recorded. Status: payment confirmed.`,
+    donation: { ref, organization: org.name, type: value.type, amount: value.amount, note: value.note, anonymous: value.anonymous, status: 'Payment confirmed' }
+  });
+});
+
+// GET /api/donations/mine  (donor only) - a donor sees ONLY their own donations
+router.get('/mine', requireRole('donor'), (req, res) => {
+  const rows = db.prepare(`
+    SELECT d.ref, o.name AS organization, d.type, d.amount, d.note, d.anonymous, d.status,
+           substr(d.created_at, 1, 10) AS date, b.name AS beneficiary_name
+    FROM donations d
+    JOIN organizations o ON o.id = d.org_id
+    LEFT JOIN beneficiaries b ON b.id = d.beneficiary_id
+    WHERE d.donor_id = ?
+    ORDER BY d.id DESC`).all(req.user.id);
+
+  // Donors see the beneficiary by initials only (privacy of the person who received aid)
+  res.json({ donations: rows.map(({ beneficiary_name, anonymous, ...d }) => ({ ...d, anonymous: !!anonymous, beneficiary: initials(beneficiary_name) })) });
+});
+
+// GET /api/donations/received  (NGO only) - donations made to the representative's own organization
+router.get('/received', requireRole('ngo'), (req, res) => {
+  const rows = db.prepare(`
+    SELECT d.ref, d.type, d.amount, d.note, d.status, substr(d.created_at, 1, 10) AS date,
+           CASE WHEN d.anonymous = 1 THEN 'Anonymous' ELSE u.name END AS donor,
+           b.ref AS beneficiary_ref, b.name AS beneficiary_name
+    FROM donations d
+    JOIN users u ON u.id = d.donor_id
+    LEFT JOIN beneficiaries b ON b.id = d.beneficiary_id
+    WHERE d.org_id = ?
+    ORDER BY d.id DESC`).all(req.user.org_id);
+  res.json({ donations: rows });
+});
+
+// PATCH /api/donations/:ref/status  (NGO only, own organization only)
+// Body: { "status": "Received by NGO" }  or  { "status": "Distributed", "beneficiaryRef": "B-001" }
+router.patch('/:ref/status', requireRole('ngo'), (req, res) => {
+  const ref = clean(req.params.ref);
+  const status = clean((req.body || {}).status);
+  if (!RULES.DONATION_REF.test(ref)) return res.status(400).json({ error: 'Invalid donation reference.' });
+  if (!['Received by NGO', 'Distributed'].includes(status)) return res.status(400).json({ error: 'Invalid status.' });
+
+  // The org_id condition stops an NGO from changing another organization's donations
+  const d = db.prepare('SELECT id, status FROM donations WHERE ref = ? AND org_id = ?').get(ref, req.user.org_id);
+  if (!d) return res.status(404).json({ error: 'Donation not found.' });
+
+  if (status === 'Received by NGO') {
+    if (d.status !== 'Payment confirmed') return res.status(409).json({ error: 'Only donations with confirmed payment can be marked as received.' });
+    db.prepare("UPDATE donations SET status = ?, updated_at = datetime('now') WHERE id = ?").run(status, d.id);
+    return res.json({ message: `Donation ${ref} marked as received.` });
   }
 
-  function showDetail(d) {
-    const box = $('#detail');
-    box.textContent = '';
-    box.hidden = false;
-    const h = document.createElement('h3'); h.textContent = 'Donation ' + d.ref; box.appendChild(h);
-    line(box, 'Organization', d.org); line(box, 'Type', d.type);
-    line(box, 'Amount', 'Rs. ' + d.amt); line(box, 'Date', d.date);
-    if (d.note) line(box, 'Your message', d.note);   // shown with createTextNode, so it is never run as HTML
-    const steps = document.createElement('div'); steps.className = 'steps';
-    STAGES.forEach((s, i) => {
-      const x = document.createElement('span');
-      x.className = 'step' + (i <= STAGES.indexOf(d.status) ? ' done' : '');
-      x.textContent = (i <= STAGES.indexOf(d.status) ? '✓ ' : '') + s;
-      steps.appendChild(x);
-    });
-    box.appendChild(steps);
-    line(box, 'Aid given to', d.to ? d.to : 'Not distributed yet');
-  }
+  // Distributed
+  if (d.status !== 'Received by NGO') return res.status(409).json({ error: 'Only donations received by the NGO can be distributed.' });
+  const bref = clean((req.body || {}).beneficiaryRef);
+  if (!RULES.BENEFICIARY_REF.test(bref)) return res.status(400).json({ error: 'Please choose a beneficiary.' });
+  const b = db.prepare("SELECT id, name FROM beneficiaries WHERE ref = ? AND org_id = ? AND status = 'Verified'").get(bref, req.user.org_id);
+  if (!b) return res.status(400).json({ error: 'Beneficiary not found or not verified yet.' });
 
-  function render(list) {
-    const body = $('#rows');
-    body.textContent = '';
-    list.forEach(d => {
-      const tr = document.createElement('tr');
-      cell(tr, d.ref); cell(tr, d.org); cell(tr, d.type); cell(tr, 'Rs. ' + d.amt); cell(tr, d.status);
-      const td = document.createElement('td');
-      const b = document.createElement('button');
-      b.type = 'button'; b.className = 'btn alt small'; b.textContent = 'View';
-      b.onclick = () => showDetail(d);
-      td.appendChild(b); tr.appendChild(td); body.appendChild(tr);
-    });
-    $('#none').hidden = list.length > 0;
-    $('#count').textContent = `Showing ${list.length} of ${mine.length} donations`;
-    $('#sum').textContent = 'Total: Rs. ' + list.reduce((s, d) => s + d.amt, 0);
-  }
+  db.prepare("UPDATE donations SET status = 'Distributed', beneficiary_id = ?, updated_at = datetime('now') WHERE id = ?").run(b.id, d.id);
+  res.json({ message: `Donation ${ref} distributed to ${b.name}.` });
+});
 
-  // Interaction: search + two filters, with validation of the search text
-  function apply() {
-    const q = $('#q').value.trim();
-    const err = $('#qerr');
-    err.textContent = '';
-    if (!/^[A-Za-z0-9 \-]*$/.test(q)) {
-      err.textContent = 'Search can contain only letters, numbers, spaces and hyphens.';
-      return;
-    }
-    const st = $('#st').value, tp = $('#tp').value, low = q.toLowerCase();
-    render(mine.filter(d =>
-      (!low || d.ref.toLowerCase().includes(low) || d.org.toLowerCase().includes(low)) &&
-      (!st || d.status === st) && (!tp || d.type === tp)));
-  }
-  $('#q').addEventListener('input', apply);
-  $('#st').addEventListener('change', apply);
-  $('#tp').addEventListener('change', apply);
-  $('#ff').onsubmit = e => { e.preventDefault(); apply(); };
-  $('#reset').onclick = () => {
-    $('#ff').reset(); $('#qerr').textContent = ''; $('#detail').hidden = true; render(mine);
-  };
-  render(mine);
-}
+module.exports = router;
