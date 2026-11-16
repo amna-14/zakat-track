@@ -1,107 +1,111 @@
+// Dashboard. Activity 6: every view loads real data from the backend using the JWT.
+// The menu shown depends on the role, but the SERVER decides what each role may do.
 const $ = s => document.querySelector(s);
-const user = JSON.parse(sessionStorage.getItem('user') || 'null');
-if (!user) location.replace('login.html');
+const { el } = ZT;
+const user = ZT.requireLogin();
 
-// Task 2 (XSS): this file used to build pages with innerHTML and template strings.
-// Now every element is created with createElement, and text is added as plain text (never read as HTML).
-function el(tag, attrs, ...kids) {
-  const n = document.createElement(tag);
-  if (attrs) Object.keys(attrs).forEach(k => n.setAttribute(k, attrs[k]));
-  kids.forEach(k => n.append(k));   // a string becomes a text node, so it can never run as code
-  return n;
-}
 function table(headers, rows) {
   const t = el('table');
-  const hr = el('tr');
-  headers.forEach(h => hr.append(el('th', null, h)));
-  t.append(hr);
-  rows.forEach(r => { const tr = el('tr'); r.forEach(c => tr.append(el('td', null, c))); t.append(tr); });
+  t.append(el('tr', null, ...headers.map(h => el('th', null, h))));
+  rows.forEach(r => t.append(el('tr', null, ...r.map(c => el('td', null, c)))));
   return t;
 }
-
-const donations = [
-  { id: 'D-1001', org: 'Noor Zakat Committee', type: 'Zakat', amt: 5000, status: 'Distributed', to: 'Z. I.' },
-  { id: 'D-1002', org: 'Noor Zakat Committee', type: 'Sadaqah', amt: 1500, status: 'Received by NGO', to: '' }
-];
-const people = [
-  { name: 'Zainab Iqbal', cnic: '33100-1234567-2' },
-  { name: 'Imran Shah', cnic: '33100-7654321-5' }
-];
-const mask = c => c.slice(0, 6) + '*******-' + c.slice(-1);
+const message = (text, ok) => el('p', { class: ok ? 'msg ok' : 'msg', role: 'alert' }, text);
 
 const views = {
-  // Donor views
-  donations: { roles: ['donor'], build: () => {
-    const f = document.createDocumentFragment();
-    f.append(el('h2', null, 'My Donations'),
-      table(['ID', 'Organization', 'Type', 'Amount', 'Status'], donations.map(d => [d.id, d.org, d.type, 'Rs. ' + d.amt, d.status])));
-    return f;
+  // ---------- Donor views (Module 2) ----------
+  donations: { roles: ['donor'], title: 'My Donations', load: async () => {
+    const r = await ZT.request('/api/donations/mine');
+    if (!r.ok) return message(r.data.error);
+    if (!r.data.donations.length) return el('p', { class: 'note' }, 'You have not made any donations yet. ', el('a', { href: 'donate.html' }, 'Donate now'));
+    return table(['Ref', 'Organization', 'Type', 'Amount', 'Status', 'Date'],
+      r.data.donations.map(d => [d.ref, d.organization, d.type, ZT.money(d.amount), d.status, d.date]));
   } },
-  track: { roles: ['donor'],
-    build: () => {
-      const f = document.createDocumentFragment();
-      const sel = el('select', { id: 'did' });
-      donations.forEach(d => sel.append(el('option', null, d.id)));
-      f.append(el('h2', null, 'Track Donation'), el('label', { for: 'did' }, 'Choose a donation'), sel,
-        el('div', { class: 'card', style: 'margin-top:14px' }, el('p', { id: 'trk' })));
-      return f;
-    },
-    init: () => {
-      const f = () => {
-        const d = donations.find(x => x.id === $('#did').value);
-        $('#trk').textContent = `${d.id}: payment made, ${d.status.toLowerCase()}` + (d.to ? `, aid given to ${d.to}` : ', waiting for distribution');
-      };
-      $('#did').onchange = f; f();
-    } },
-  // NGO views
-  received: { roles: ['ngo'], build: () => {
-    const f = document.createDocumentFragment();
-    f.append(el('h2', null, 'Donations Received'),
-      table(['ID', 'Type', 'Amount', 'Status'], donations.map(d => [d.id, d.type, 'Rs. ' + d.amt, d.status])));
-    return f;
+
+  track: { roles: ['donor'], title: 'Track Donation', load: async () => {
+    const r = await ZT.request('/api/donations/mine');
+    if (!r.ok) return message(r.data.error);
+    if (!r.data.donations.length) return el('p', { class: 'note' }, 'You have no donations to track yet.');
+    const sel = el('select', { id: 'did' }, ...r.data.donations.map(d => el('option', { value: d.ref }, d.ref + ' - ' + d.organization)));
+    const out = el('p');
+    const update = () => {
+      const d = r.data.donations.find(x => x.ref === sel.value);
+      out.textContent = `${d.ref}: payment made, ${d.status.toLowerCase()}` + (d.beneficiary ? `, aid given to ${d.beneficiary}` : ', waiting for distribution');
+    };
+    sel.onchange = update; update();
+    return el('div', null, el('label', { for: 'did' }, 'Choose a donation'), sel, el('div', { class: 'card', style: 'margin-top:14px' }, out));
   } },
-  beneficiaries: { roles: ['ngo'],
-    build: () => {
-      const f = document.createDocumentFragment();
-      const rows = people.map(p => {
-        const span = el('span', null, mask(p.cnic));
-        const btn = el('button', { class: 'btn alt small', type: 'button' }, 'Show');
-        btn.onclick = () => {
-          const hidden = span.textContent === mask(p.cnic);
-          span.textContent = hidden ? p.cnic : mask(p.cnic);
-          btn.textContent = hidden ? 'Hide' : 'Show';
+
+  // ---------- NGO views ----------
+  received: { roles: ['ngo'], title: 'Donations Received', load: async () => {
+    const r = await ZT.request('/api/donations/received');
+    if (!r.ok) return message(r.data.error);
+    const box = el('div');
+    const status = el('p', { class: 'msg', role: 'alert' });
+    const rows = r.data.donations.map(d => {
+      let action = '';
+      if (d.status === 'Payment confirmed') {
+        action = el('button', { class: 'btn alt small', type: 'button' }, 'Mark received');
+        action.onclick = async () => {
+          action.disabled = true;
+          const res = await ZT.request('/api/donations/' + encodeURIComponent(d.ref) + '/status', { method: 'PATCH', body: { status: 'Received by NGO' } });
+          if (!res.ok) { status.className = 'msg'; status.textContent = res.data.error; action.disabled = false; return; }
+          show();   // reload the list from the server
         };
-        return [p.name, span, btn];
-      });
-      f.append(el('h2', null, 'Beneficiaries'), table(['Name', 'CNIC', ''], rows),
-        el('p', { class: 'note' }, 'CNIC is masked by default and visible to NGO representatives only. Donors never see it.'));
-      return f;
-    } },
-  distribute: { roles: ['ngo'],
-    build: () => {
-      const f = document.createDocumentFragment();
-      const sel = el('select', { id: 'pp' });
-      people.forEach(p => sel.append(el('option', null, p.name)));
-      const form = el('form', { id: 'df', class: 'card' },
-        el('label', { for: 'pp' }, 'Beneficiary'), sel,
-        el('label', { for: 'am' }, 'Amount (Rs.)'), el('input', { id: 'am', type: 'number', min: '1', max: '1000000' }),
-        el('p', { class: 'msg', id: 'dm' }), el('button', { class: 'btn', type: 'submit' }, 'Record'));
-      f.append(el('h2', null, 'Record Aid Distribution'), form);
-      return f;
-    },
-    init: () => $('#df').onsubmit = e => {
+      }
+      return [d.ref, d.donor, d.type, ZT.money(d.amount), d.status, d.beneficiary_name || '-', action];
+    });
+    box.append(rows.length ? table(['Ref', 'Donor', 'Type', 'Amount', 'Status', 'Beneficiary', ''], rows)
+                           : el('p', { class: 'note' }, 'No donations received yet.'), status);
+    return box;
+  } },
+
+  beneficiaries: { roles: ['ngo'], title: 'Beneficiaries', load: async () => {
+    const r = await ZT.request('/api/beneficiaries');
+    if (!r.ok) return message(r.data.error);
+    const rows = r.data.beneficiaries.map(b => {
+      const span = el('span', null, b.cnic);
+      const btn = el('button', { class: 'btn alt small', type: 'button', style: 'margin-left:8px' }, 'Show');
+      btn.onclick = async () => {
+        if (btn.textContent === 'Hide') { span.textContent = b.cnic; btn.textContent = 'Show'; return; }
+        const res = await ZT.request('/api/beneficiaries/' + encodeURIComponent(b.ref) + '/cnic');   // full CNIC only on request
+        if (res.ok) { span.textContent = res.data.cnic; btn.textContent = 'Hide'; }
+      };
+      return [b.ref, b.name, el('span', null, span, btn), b.city, b.need, b.status];
+    });
+    return el('div', null,
+      rows.length ? table(['Ref', 'Name', 'CNIC', 'City', 'Need', 'Status'], rows) : el('p', { class: 'note' }, 'No beneficiaries yet.'),
+      el('p', { class: 'note' }, 'CNIC is masked by default and visible to your organization\'s representatives only. Donors never see it.'));
+  } },
+
+  distribute: { roles: ['ngo'], title: 'Record Aid Distribution', load: async () => {
+    const [dr, br] = await Promise.all([ZT.request('/api/donations/received'), ZT.request('/api/beneficiaries')]);
+    if (!dr.ok) return message(dr.data.error);
+    if (!br.ok) return message(br.data.error);
+    const ready = dr.data.donations.filter(d => d.status === 'Received by NGO');
+    const verified = br.data.beneficiaries.filter(b => b.status === 'Verified');
+    if (!ready.length) return el('p', { class: 'note' }, 'No donations are waiting for distribution. Mark donations as received first.');
+    if (!verified.length) return el('p', { class: 'note' }, 'No verified beneficiaries yet.');
+
+    const dsel = el('select', { id: 'dd' }, ...ready.map(d => el('option', { value: d.ref }, `${d.ref} - ${ZT.money(d.amount)} (${d.type})`)));
+    const bsel = el('select', { id: 'pp' }, ...verified.map(b => el('option', { value: b.ref }, `${b.ref} - ${b.name}`)));
+    const out = el('p', { class: 'msg', role: 'alert' });
+    const form = el('form', { class: 'card', novalidate: '' },
+      el('label', { for: 'dd' }, 'Donation'), dsel,
+      el('label', { for: 'pp' }, 'Beneficiary'), bsel,
+      out, el('button', { class: 'btn', type: 'submit' }, 'Record distribution'));
+    form.onsubmit = async e => {
       e.preventDefault();
-      const ok = recordDistribution($('#pp').value, +$('#am').value);
-      if (ok) { $('#dm').className = 'msg ok'; $('#dm').textContent = 'Distribution recorded (demo).'; }
-    } }
+      const res = await ZT.request('/api/donations/' + encodeURIComponent(dsel.value) + '/status',
+        { method: 'PATCH', body: { status: 'Distributed', beneficiaryRef: bsel.value } });
+      if (!res.ok) { out.className = 'msg'; out.textContent = res.data.error; return; }
+      await show();
+      $('#content').prepend(message(res.data.message, true));
+    };
+    return form;
+  } }
 };
 
-// Restricted function: only an NGO representative can record aid distribution
-function recordDistribution(name, amt) {
-  if (!user || user.role !== 'ngo') { deny(); return false; }
-  if (!(amt > 0) || amt > 1000000) { $('#dm').className = 'msg'; $('#dm').textContent = 'Enter an amount between 1 and 1,000,000.'; return false; }
-  return true;
-}
 function deny() {
   const box = $('#content');
   box.textContent = '';
@@ -113,7 +117,8 @@ const menu = {
   ngo: [['received', 'Donations Received'], ['beneficiaries', 'Beneficiaries'], ['distribute', 'Record Aid Distribution']]
 };
 
-function show() {
+let loading = 0;   // ignores slow answers when the user has already moved to another view
+async function show() {
   const v = location.hash.slice(1), box = $('#content');
   box.textContent = '';
   if (!v) { box.append(el('p', { class: 'note' }, 'Choose an option above to get started.')); return; }
@@ -121,12 +126,16 @@ function show() {
   if (!Object.prototype.hasOwnProperty.call(views, v)) { box.append(el('p', { class: 'note' }, 'Page not found.')); return; }
   const view = views[v];
   if (!view.roles.includes(user.role)) return deny();
-  box.append(view.build());
-  if (view.init) view.init();
+  const id = ++loading;
+  box.append(el('p', { class: 'note' }, 'Loading...'));
+  const content = await view.load();
+  if (id !== loading) return;
+  box.textContent = '';
+  box.append(el('h2', null, view.title), content);
 }
 
-if (user) {
-  $('#who').textContent = `Welcome, ${user.name} (${user.role === 'ngo' ? 'NGO Representative' : 'Donor'})`;
+if (user && menu[user.role]) {
+  $('#who').textContent = `Welcome, ${user.name} (${user.role === 'ngo' ? 'NGO Representative' + (user.organization ? ', ' + user.organization : '') : 'Donor'})`;
   const m = $('#menu');
   m.textContent = '';
   menu[user.role].forEach(([k, t]) => m.append(el('a', { class: 'btn alt', href: '#' + k }, t)));
@@ -139,12 +148,10 @@ if (user) {
   show();
 }
 
-// Task 4: logout clears the screen state (page content, menu, name) and everything kept in the browser tab
+// Logout clears the screen, revokes the token on the server and empties browser storage
 $('#logout').onclick = () => {
   $('#content').textContent = '';
   $('#menu').textContent = '';
   $('#who').textContent = '';
-  sessionStorage.clear();
-  location.replace('login.html');
+  ZT.logout();
 };
-window.onpageshow = () => { if (!sessionStorage.getItem('user')) location.replace('login.html'); };
