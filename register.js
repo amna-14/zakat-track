@@ -1,4 +1,4 @@
-// Activity 5, Task 5: password strength feedback + basic validation on the account form
+// Activity 5, Task 5: password strength feedback + validation. Activity 6: account is saved by the backend.
 const $ = s => document.querySelector(s);
 const COLORS = { Weak: '#b42318', Moderate: '#b7791f', Strong: '#15803d' };
 const pass = $('#rpass');
@@ -26,7 +26,7 @@ pass.addEventListener('input', showStrength);
 
 const clean = s => String(s).replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim();
 
-$('#regForm').onsubmit = e => {
+$('#regForm').onsubmit = async e => {
   e.preventDefault();
   const msg = $('#rmsg');
   const fail = t => { msg.className = 'msg'; msg.textContent = t; };
@@ -46,9 +46,14 @@ $('#regForm').onsubmit = e => {
   if (r && r.level === 'Weak') return fail('Your password is too weak. Please choose a stronger one.');
   if (p1 !== p2) return fail('The two passwords do not match.');
 
-  // Demo only: nothing is saved anywhere, and the password boxes are cleared straight away
+  // Activity 6: the account is created by the backend (it validates again and stores only a bcrypt hash)
+  const btn = $('#regForm button[type=submit]');
+  btn.disabled = true;
+  const res = await ZT.request('/api/auth/register', { method: 'POST', body: { name, email, password: p1 }, auth: false });
+  btn.disabled = false;
+  pass.value = ''; $('#rpass2').value = ''; $('#strength').hidden = true;   // never keep the password on the page
+  if (!res.ok) return fail(res.data.error);
   $('#regForm').reset();
-  $('#strength').hidden = true;
   msg.className = 'msg ok';
-  msg.textContent = 'Account details are valid (demo only, nothing was saved).';
+  msg.textContent = res.data.message;
 };
