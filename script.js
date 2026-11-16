@@ -1,3 +1,4 @@
+// Shared page script: home, login and donate pages
 const $ = s => document.querySelector(s);
 
 // Remove hidden control characters, turn runs of spaces/new lines into one space, trim both ends
@@ -11,78 +12,96 @@ if (tg) tg.onclick = () => {
   tg.textContent = hidden ? 'Hide' : 'Show';
 };
 
-// 2. Login with demo users (demo only, real authentication comes with the backend)
-// Task 4: no plain-text passwords in this file. Only a SHA-256 hash of "zakattrack:email:password" is kept.
-const demoUsers = [
-  { email: 'amna@zakattrack.pk', hash: 'fa0216bbdf4de6e5c7d807690f99203738786f7d24eaeb5f53eb18596cdbf04f', name: 'Amna', role: 'donor' },
-  { email: 'bilal@zakattrack.pk', hash: '99948daec74c5cf0cc7a99adb3ba18e3aff4126c1fede68f1d0de189cfca642e', name: 'Bilal', role: 'ngo' }
-];
-async function sha256(text) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
+// 2. Login (Activity 6, Task 4): the password is checked by the BACKEND, which returns a signed JWT
 const EMAIL_OK = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
 const lf = $('#loginForm');
-if (lf) lf.onsubmit = async e => {
-  e.preventDefault();
-  const msg = $('#loginMsg');
-  const fail = t => { msg.textContent = t; };
-  msg.textContent = '';
-  const email = clean($('#email').value).toLowerCase();   // spaces removed from both ends
-  const password = pw.value;                                // passwords are never trimmed or stored
+if (lf) {
+  if (new URLSearchParams(location.search).get('expired') === '1') $('#expired').hidden = false;
+  lf.onsubmit = async e => {
+    e.preventDefault();
+    const msg = $('#loginMsg');
+    const fail = t => { msg.className = 'msg'; msg.textContent = t; };
+    msg.textContent = '';
+    const email = clean($('#email').value).toLowerCase();   // spaces removed from both ends
+    const password = pw.value;                                // passwords are never trimmed or stored
 
-  // Task 1: validation for the login form
-  if (!email) return fail('Email is required.');
-  if (email.length > 100) return fail('Email must be at most 100 characters.');
-  if (!EMAIL_OK.test(email)) return fail('Please enter a valid email address.');
-  if (!password) return fail('Password is required.');
-  if (password.length < 8) return fail('Password must be at least 8 characters.');
-  if (password.length > 64) return fail('Password must be at most 64 characters.');
-  if (!(window.crypto && crypto.subtle)) return fail('This browser cannot run the demo login on this page. Please open the live HTTPS site.');
+    // Activity 5 Task 1: validation in the browser (the server checks again)
+    if (!email) return fail('Email is required.');
+    if (email.length > 100) return fail('Email must be at most 100 characters.');
+    if (!EMAIL_OK.test(email)) return fail('Please enter a valid email address.');
+    if (!password) return fail('Password is required.');
+    if (password.length < 8) return fail('Password must be at least 8 characters.');
+    if (password.length > 64) return fail('Password must be at most 64 characters.');
 
-  const h = await sha256('zakattrack:' + email + ':' + password);
-  pw.value = '';   // clear the password box as soon as it has been checked
-  const u = demoUsers.find(x => x.email === email && x.hash === h);
-  if (!u) return fail('Incorrect email or password.');
-  // Task 4: only the name and role are kept in the browser (never the password)
-  sessionStorage.setItem('user', JSON.stringify({ name: u.name, role: u.role }));
-  location.href = 'dashboard.html';
-};
+    const btn = lf.querySelector('button[type=submit]');
+    btn.disabled = true; msg.className = 'msg ok'; msg.textContent = 'Checking...';
+    const r = await ZT.request('/api/auth/login', { method: 'POST', body: { email, password }, auth: false });
+    pw.value = '';   // clear the password box as soon as it has been sent
+    btn.disabled = false;
+    if (!r.ok) return fail(r.data.error);
+    ZT.saveSession(r.data.token, r.data.user);   // JWT + name/role only, never the password
+    location.href = 'dashboard.html';
+  };
+}
 
-// 3. Search and filter organizations
-const cards = [...document.querySelectorAll('.ngo')];
-let chosen = '';
+// 3. Donate page: organizations come from the backend
+const df = $('#donateForm');
+let cards = [];
+let chosen = null;   // { id, name }
+
 function filter() {
   const q = $('#search').value.toLowerCase(), c = $('#city').value;
   cards.forEach(x => x.hidden = !(x.dataset.name.toLowerCase().includes(q) && (!c || x.dataset.city === c)));
-  $('#none').hidden = cards.some(x => !x.hidden);
+  $('#none').hidden = cards.length === 0 || cards.some(x => !x.hidden);
 }
-if ($('#search')) { $('#search').oninput = filter; $('#city').onchange = filter; }
-cards.forEach(x => x.querySelector('button').onclick = () => {
-  cards.forEach(y => y.classList.remove('sel'));
-  x.classList.add('sel');
-  chosen = x.dataset.name;
-  $('#chosen').textContent = chosen;
-});
 
-// 4. Donation validation + confirmation modal
-const df = $('#donateForm');
+async function loadOrganizations() {
+  const box = $('#orgs');
+  const r = await ZT.request('/api/organizations', { auth: false });
+  box.textContent = '';
+  if (!r.ok) { box.append(ZT.el('p', { class: 'msg' }, r.data.error)); return; }
+  cards = r.data.organizations.map(o => {
+    const btn = ZT.el('button', { class: 'btn alt', type: 'button' }, 'Select');
+    const card = ZT.el('div', { class: 'card ngo' },
+      ZT.el('div', null, ZT.el('h3', null, o.name), ZT.el('p', null, ZT.el('span', { class: 'tag' }, 'Verified'), o.city + ' | ' + o.focus)),
+      btn);
+    card.dataset.name = o.name; card.dataset.city = o.city;
+    btn.onclick = () => {
+      cards.forEach(y => y.classList.remove('sel'));
+      card.classList.add('sel');
+      chosen = { id: o.id, name: o.name };
+      $('#chosen').textContent = o.name;
+    };
+    box.append(card);
+    return card;
+  });
+  if (!cards.length) box.append(ZT.el('p', { class: 'note' }, 'No organizations available yet.'));
+}
+
 if (df) {
+  $('#search').oninput = filter; $('#city').onchange = filter;
+  loadOrganizations();
+
+  const u = ZT.user();
+  if (!ZT.loggedIn() || !u || u.role !== 'donor') $('#loginHint').hidden = false;
+
   const TYPES = ['Zakat', 'Sadaqah', 'General charity'];
   const AMT_MIN = 100, AMT_MAX = 1000000, NOTE_MAX = 100;
   let pending = null;   // the reviewed donation, kept in memory only until it is confirmed or cancelled
+  const msg = $('#donMsg');
+  const fail = t => { msg.style.color = '#b91c1c'; msg.textContent = t; };
 
   $('#note').addEventListener('input', e => { $('#ncount').textContent = e.target.value.length; });
 
   df.onsubmit = e => {
     e.preventDefault();
-    const msg = $('#donMsg');
-    const fail = t => { msg.style.color = '#b91c1c'; msg.textContent = t; };
     const amtText = $('#amount').value.trim();
     const type = $('#type').value;
     const note = clean($('#note').value);
 
-    // Task 1: validation for the donate form
+    if (!ZT.loggedIn()) return fail('Please log in as a donor to make a donation.');
+    if (ZT.user().role !== 'donor') return fail('Only donor accounts can make donations.');
+    // Activity 5 Task 1: validation for the donate form (the server checks again)
     if (!chosen) return fail('Please select an organization first.');
     if (!TYPES.includes(type)) return fail('Please choose a donation type from the list.');
     if ($('#amount').validity.badInput) return fail('Amount must contain numbers only.');
@@ -94,29 +113,32 @@ if (df) {
     if (note.length > NOTE_MAX) return fail('Message must be at most ' + NOTE_MAX + ' characters.');
 
     msg.textContent = '';
-    pending = { org: chosen, amt, type, anon: $('#anon').checked, note };
-    // Task 2: textContent shows the text as plain text, it is never read as HTML
-    $('#summary').textContent = `Rs. ${amt} (${type}) to ${chosen}` + (pending.anon ? ', anonymous' : '') + (note ? '. Message: ' + note : '');
+    pending = { orgId: chosen.id, org: chosen.name, amount: amt, type, anonymous: $('#anon').checked, note };
+    // textContent shows the text as plain text, it is never read as HTML
+    $('#summary').textContent = `Rs. ${amt} (${type}) to ${chosen.name}` + (pending.anonymous ? ', anonymous' : '') + (note ? '. Message: ' + note : '');
     $('#modal').hidden = false;
   };
   $('#cancel').onclick = () => { $('#modal').hidden = true; pending = null; };
-  $('#confirm').onclick = () => {
+  $('#confirm').onclick = async () => {
+    if (!pending) return;
+    const p = pending; pending = null;
+    $('#confirm').disabled = true;
+    // Activity 6: the donation is sent to the backend and saved in the database
+    const r = await ZT.request('/api/donations', { method: 'POST', body: { orgId: p.orgId, type: p.type, amount: p.amount, note: p.note, anonymous: p.anonymous } });
+    $('#confirm').disabled = false;
     $('#modal').hidden = true;
-    if (pending && pending.note) {
-      // Task 2: safe rendering. The user's message is added with createElement + textContent, not innerHTML.
-      const li = document.createElement('li');
-      li.textContent = 'Rs. ' + pending.amt + ' to ' + pending.org + ': ' + pending.note;
-      $('#notes').appendChild(li);
-      $('#notesBox').hidden = false;
-    }
-    pending = null;
+    if (!r.ok) return fail(r.data.error);
+
+    const d = r.data.donation;
+    // Safe rendering: createElement + textContent, never innerHTML
+    $('#notes').append(ZT.el('li', null, `${d.ref}: Rs. ${d.amount} to ${d.organization}` + (d.note ? ' - ' + d.note : '')));
+    $('#notesBox').hidden = false;
     df.reset();
     $('#ncount').textContent = '0';
     cards.forEach(y => y.classList.remove('sel'));
-    chosen = ''; $('#chosen').textContent = 'None';
-    const msg = $('#donMsg');
+    chosen = null; $('#chosen').textContent = 'None';
     msg.style.color = '#15803d';
-    msg.textContent = 'Thank you! Your donation was recorded (demo only, no real payment).';
+    msg.textContent = r.data.message + ' You can follow it in Donation History.';
   };
 }
 
@@ -124,6 +146,4 @@ if (df) {
 window.addEventListener('pageshow', () => { if (lf) { lf.reset(); $('#loginMsg').textContent = ''; pw.type = 'password'; tg.textContent = 'Show'; } });
 
 // If someone is logged in, the Login link in the menu becomes a Dashboard link
-try {
-  if (sessionStorage.getItem('user')) document.querySelectorAll('nav a[href="login.html"]').forEach(a => { a.textContent = 'Dashboard'; a.href = 'dashboard.html'; });
-} catch (e) {}
+if (ZT.loggedIn()) document.querySelectorAll('nav a[href="login.html"]').forEach(a => { a.textContent = 'Dashboard'; a.href = 'dashboard.html'; });
